@@ -26,10 +26,10 @@ Linux Arm.
 # Resources
 These are used below but to make them easily accessible quickly, here they all
 are...
-* [setup-alsa.sh](setup-alsa.sh) Mainline kernel alsa enablement script 
-* [odroid-n2-plus-overlock.dtbo](odroid-n2-plus-overlock.dtbo) ODROID N2 Plus Device Tree Overlay for overclocking
-  * [odroid-n2-plus-overlock.dts](odroid-n2-plus-overlock.dts) Source for the above
-* [extlinux.conf](extlinux.conf) My /boot/extlinux/extlinux.conf for mainline u-boot file as a starting point 
+* [setup-alsa.sh](resources/setup-alsa.sh) Mainline kernel alsa enablement script 
+* [odroid-n2-plus-overlock.dtbo](resources/odroid-n2-plus-overlock.dtbo) ODROID N2 Plus Device Tree Overlay for overclocking
+  * [odroid-n2-plus-overlock.dts](resources/odroid-n2-plus-overlock.dts) Source for the above
+* [extlinux.conf](resources/extlinux.conf) My /boot/extlinux/extlinux.conf for mainline u-boot file as a starting point 
 
 # What works?
 The following is all working on Arch Linux arm.  I'm confident I could get it working on pretty much any distro that provides an aarch64 kernel though.
