@@ -32,7 +32,8 @@ are...
 * [extlinux.conf](resources/extlinux.conf) My /boot/extlinux/extlinux.conf for mainline u-boot file as a starting point 
 
 # What works?
-The following is all working on Arch Linux arm.  I'm confident I could get it working on pretty much any distro that provides an aarch64 kernel though.
+The following is all working on Arch Linux arm.  I'm confident I could get it
+working on pretty much any distro that provides an aarch64 kernel though.
 
 * Mainline Linux (6.14.4 at last update)
 * Mainline U-Boot
@@ -116,7 +117,8 @@ latest and greatest.  When done, reboot back in to ensure everything is good.
 
 ***At this point, you have a vanilla Arch Linux Arm install with the following:***
 * Enough space after your MBR partition table and before your boot partition for a much larger u-boot.
-* Still have stock u-boot (old) 
+* Stock (hardkernel) u-boot
+* Stock (hardkernel) linux kernel
 
 *Note: The amlogic board is going to look 512B into the sdcard for a signed
 boot loader, it doesn't actually do the whole MBR thing or understand
@@ -142,11 +144,54 @@ cp -a * backup
 ## Install Mainline U-Boot
 ***Note: Once you install mainline u-boot on your sdcard, you cannot boot the
 "stock" hardkernel kernel because the handoff method to the kernel is different
-and specific to the hardkernel kernels.***
+and specific to the hardkernel kernels.***  Once you install a mainline kernel
+or install mainline u-boot, you need both to boot.
 
-Installing mainline u-boot is a pretty simple process 
+*From this point on it is assumed that you have network access on the ODROID
+and a USB drive or access via ssh/scp or other mechanism to transfer files back
+and forth from the ODROID.  You will also need an x86 linux machine to sign the
+resulting u-boot build.  It is also assumed that, if you are venturing into
+mainline linux on an arm sbc, you are familiar enough with linux that you know
+how to setup the network and prepare / mount usb drives.*
+
+### Download
+Go get a mainline release (v2025.04 as of this writing) from [U-Boot Github
+Releases](https://github.com/u-boot/u-boot/tags).  Download the archive and
+transfer it to your alarm user (or other non-root user if you have already
+added one) home directory and extract.  We will be building u-boot on the
+ODROID.
+
+### Build U-Boot on ODROID
+Review the [U-Boot for
+ODROID-N2/N2+](https://docs.u-boot.org/en/latest/board/amlogic/odroid-n2.html)
+page for the basic install instructions.  Beware that most of the instructions
+are in regard to manually signing the resulting u-boot image, but I used the
+pre-built FIP repo.  **The instructions are geared toward cross compiling on an x86
+system** but it is far easier to just build on the odroid itself.  This means
+we will **not export CROSS_COMPILE**. We also need to make a small change to
+the odroid n2 build config after it is generated to bounce the USB ports at
+every boot--this is something I came up with in order to make the USB ports
+function after reboot instead of requiring a power cycle at every boot.  I'm
+not sure why this happens, but it is a reliable solution from my testing.
+
+**You will have to install base-devel and potentially other packages to build
+u-boot.** (TODO: determine which packages are needed an document here) 
 
 
+```
+cd v2025.04
+make odroid-n2_defconfig
+```
+Now edit the resulting .config file and add ```usb reset; ``` at the front of
+the BOOTCMD value.  
+```
+example
+```
+
+
+
+
+https://docs.u-boot.org/en/latest/board/amlogic/odroid-n2.html
 
 
 ## Analog Audio Enablment
