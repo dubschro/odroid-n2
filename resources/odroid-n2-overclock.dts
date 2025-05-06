@@ -1,0 +1,15 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	fragment@0 {
+		target-path = "/opp-table-1"; 
+		__overlay__ {
+			opp-2004000000 {
+				opp-hz = /bits/ 64 <2004000000>;
+				opp-microvolt = <1022000>;
+			};
+		};
+	};
+};
+

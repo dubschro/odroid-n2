@@ -2,8 +2,9 @@
 /plugin/;
 
 / {
-		&opp-table-0 {
-
+	fragment@0 {
+		target-path = "/opp-table-0";
+		__overlay__ {
 			opp-1908000000 {
 				opp-hz = /bits/ 64 <1908000000>;
 				opp-microvolt = <1030000>;
@@ -12,8 +13,8 @@
 				opp-hz = /bits/ 64 <2016000000>;
 				opp-microvolt = <1040000>;
 			};
-
-
+		};
+	};
 	fragment@1 {
 		target-path = "/opp-table-1"; 
 		__overlay__ {

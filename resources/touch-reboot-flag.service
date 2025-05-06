@@ -1,0 +1,11 @@
+[Unit]
+Description=Touch /boot/reboot when rebooting
+DefaultDependencies=no
+Before=reboot.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/touch /boot/reboot
+
+[Install]
+WantedBy=reboot.target
