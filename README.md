@@ -1,10 +1,11 @@
 # THIS IS IN THE PROCESS OF BEING CREATED AND IS NOT COMPLETE
 # ODROID N2 Resources / Guide
 This repo and this README.md provide the recipie and utilities I use on my
-odroid-n2 to run modern arch (arch arm port) with.  I'm sure this information
+ODROID N2+ to run modern arch (arch arm port) with.  I'm sure this information
 can help you get other distribitions working with mainline linux and u-boot as
 well, but be aware that this guide specifically provides instructions for Arch
-Linux Arm.  
+Linux Arm.  Everything except the overclocking should be the same for an
+original N2.  
 
 <!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
 
@@ -33,9 +34,9 @@ are...
   * [odroid-n2-overlock.dts](resources/odroid-n2-overlock.dts) **UNTESTED** Source for the above
   * The mainline kernel already *"overclocks"* the non plus variant to some
     degree via the base ```meson-g12b-s922x.dtsi``` that is used for many arm
-    sbc.  I *assume* the mainline cpu voltage and frequencies work with the n2,
-    and I have created created the n2 overclock overlay based on the stock
-    hardkernel kernel's additional a73 clock of 2004.
+    sbc.  I *assume* the mainline cpu voltage and frequencies work with the n2, but I do not own one to test with.
+    I have created created the n2 overclock overlay based on the stock
+    hardkernel kernel's additional a73 mhz/mv for the 2004 speed from the stock device tree.
 * [extlinux.conf](resources/extlinux.conf) A /boot/extlinux/extlinux.conf for mainline u-boot file as a starting point 
 
 # What works?
@@ -389,6 +390,60 @@ systemctl enable touch-reboot-flag.service
 ```
 Congrats, now you have usb ports after reboots!
 
+## Overclocking
+I do not have an original N2 to test with, only my N2+, so this has only been
+tested on an N2.  I've created two device tree overlays that will add the
+additional overclock speeds and voltages to both boards.  The N2+ DTO has 2
+additional a73 clock speeds and 2 additional a53 clock speeds.  The N2 DTO has
+one additional a73 clock speed over the base s922x speeds the mainline kernel
+already uses by default.  The implication here is that some of the clock speeds
+the odroid n2 wiki considers overclocked are considered standard speeds for the
+underlying SoC and are used on many SBCs.  
+
+Grab either the N2 or N2+ overclocking DTO from the [Resources](#resources) section and install in a directory called
+```/boot/overlays```, then add it as an ```FDT``` line in your extlinux.conf.
+An example is included below.
+```
+LABEL mainline-linux
+  MENU LABEL Mainline Linux Kernel
+  LINUX ../Image
+  INITRD ../initramfs-linux.img
+  FDT ../dtbs/amlogic/meson-g12b-odroid-n2-plus.dtb
+  APPEND root=UUID=a5a6b723-1b8d-4844-9ca6-3047d3399600 rw rootwait console=ttyAML0,115200n8 console=tty1 loglevel=7 video=1920x1080@60 drm.edid_firmware=HDMI-A-1:edid/my-monitor.bin
+```
+After a reboot, you can install the ```cpupower``` package and run ```cpupower -c 0 frequency-info``` to see the a53 core frequency and 
+```cpupower -c 2 frequency-info``` to see the a73 core frequency.
+```
+[raz@alarm ~]$ cpupower -c 0 frequency-info
+analyzing CPU 0:
+  driver: cpufreq-dt
+  CPUs which run at the same hardware frequency: 0 1
+  CPUs which need to have their frequency coordinated by software: 0 1
+  maximum transition latency: 50.0 us
+  hardware limits: 1000 MHz - 2.02 GHz
+  available frequency steps:  1000 MHz, 1.20 GHz, 1.40 GHz, 1.51 GHz, 1.61 GHz, 1.70 GHz, 1.80 GHz, 1.91 GHz, 2.02 GHz
+  available cpufreq governors: conservative ondemand userspace powersave performance schedutil
+  current policy: frequency should be within 1000 MHz and 2.02 GHz.
+                  The governor "performance" may decide which speed to use
+                  within this range.
+  current CPU frequency: Unable to call hardware
+  current CPU frequency: 2.02 GHz (asserted by call to kernel)
+[raz@alarm ~]$ cpupower -c 2 frequency-info
+analyzing CPU 2:
+  driver: cpufreq-dt
+  CPUs which run at the same hardware frequency: 2 3 4 5
+  CPUs which need to have their frequency coordinated by software: 2 3 4 5
+  maximum transition latency: 50.0 us
+  hardware limits: 1000 MHz - 2.40 GHz
+  available frequency steps:  1000 MHz, 1.20 GHz, 1.40 GHz, 1.51 GHz, 1.61 GHz, 1.70 GHz, 1.80 GHz, 1.91 GHz, 2.02 GHz, 2.11 GHz, 2.21 GHz, 2.30 GHz, 2.40 GHz
+  available cpufreq governors: conservative ondemand userspace powersave performance schedutil
+  current policy: frequency should be within 1000 MHz and 2.40 GHz.
+                  The governor "performance" may decide which speed to use
+                  within this range.
+  current CPU frequency: Unable to call hardware
+  current CPU frequency: 2.40 GHz (asserted by call to kernel)
+```
+
 ## Analog Audio Enablment
 The [setup-alsa.sh](./analog-audio/setup-alsa.sh) script will twiddle the alsa
 config in order to activate the 3.5mm analog jack and save its state across
@@ -397,5 +452,11 @@ Maybe you can get pipewire-pulse towork, but I always end up back on vanilla
 pulseaudio with suspending disabled to avoid the massive POP sound every time
 audio is played for the first time.
 
-#
+### Install Pulseaudio and Disable Sink Suspend
+Install the ```pulseaudio``` package and then modify the ```/etc/pulse/default.pa``` file by commenting out the ```load-module module-suspend-on-idle``` statement.
+```
+### Automatically suspend sinks/sources that become idle for too long
+#load-module module-suspend-on-idle
+```
+Now when you login via a desktop environment such as plasma, there will be a loud pop initially, but after that, only a much smaller "tick" at the start of new audio playing.
 
