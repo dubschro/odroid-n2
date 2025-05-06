@@ -1,4 +1,13 @@
-# THIS IS IN THE PROCESS OF BEING CREATED AND IS NOT COMPLETE
+# THIS IS A WORK IN PROGRESS
+TODO (needs documentation)
+* Update network settings for ethernet device name change with mainline kernel
+* Switch to network manager because systemd-networkd fights device renaming timing?
+* USB Quirks for cheap USB3 M2 SSD drives
+* Disabling suspend
+* Wayland vs X11 (use Wayland, it's dramatically faster)
+* Plasma on Wayland
+* SDDM on Wayland
+
 # ODROID N2 Resources / Guide
 This repo and this README.md provide the recipie and utilities I use on my
 ODROID N2+ to run modern arch (arch arm port) with.  I'm sure this information
@@ -20,10 +29,26 @@ original N2.
    * [Finish Up a Normal Arch Linux Install](#finish-up-a-normal-arch-linux-install)
    * [Backup the Stock Boot Partition and Kernel Modules](#backup-the-stock-boot-partition-and-kernel-modules)
    * [Install Mainline U-Boot](#install-mainline-u-boot)
+      + [Download](#download)
+      + [Build U-Boot on ODROID](#build-u-boot-on-odroid)
+      + [Sign U-Boot on x86 Linux](#sign-u-boot-on-x86-linux)
+      + [Install U-Boot ](#install-u-boot)
+   * [Update mkinitcpio to Load Panfrost ASAP](#update-mkinitcpio-to-load-panfrost-asap)
+   * [Install Mainline aarch64 Linux Kernel](#install-mainline-aarch64-linux-kernel)
+   * [Uninstall stock uboot](#uninstall-stock-uboot)
+   * [U-Boot Distro Boot extlinux.conf file](#u-boot-distro-boot-extlinuxconf-file)
+   * [Change FSTAB to Use UUID for Boot Partition](#change-fstab-to-use-uuid-for-boot-partition)
+   * [Reboot Into Mainline Linux](#reboot-into-mainline-linux)
+   * [Pin Your Monitor's EDID file](#pin-your-monitors-edid-file)
+      + [Extract the EDID File From Your Monitor](#extract-the-edid-file-from-your-monitor)
+      + [Put the EDID in Your initrd](#put-the-edid-in-your-initrd)
+   * [Setup the "Fix USB" Reboot Hook](#setup-the-fix-usb-reboot-hook)
+   * [Overclocking](#overclocking)
    * [Analog Audio Enablment](#analog-audio-enablment)
+      + [Install Pulseaudio and Disable Sink Suspend](#install-pulseaudio-and-disable-sink-suspend)
+      + [Automatically suspend sinks/sources that become idle for too long](#automatically-suspend-sinkssources-that-become-idle-for-too-long)
 
 <!-- TOC end -->
-
 # Resources
 These are used below but to make them easily accessible quickly, here they all
 are...
