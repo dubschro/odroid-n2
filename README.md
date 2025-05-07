@@ -1,9 +1,3 @@
-# WORK IN PROGRESS
-This is a work in progress.  Please note that I have not yet followed these
-steps end to end to ensure I didn't miss anything.  I just documented
-what I remembered from doing the process myself using my resulting
-working system as a guide.
-
 # ODROID N2 Resources / Guide
 This repo and this README.md provide the recipie and utilities I use on my
 ODROID N2+ to run modern arch (arch arm port) with.  I'm sure this information
@@ -11,6 +5,7 @@ can help you get other distribitions working with mainline linux and u-boot as
 well, but be aware that this guide specifically provides instructions for Arch
 Linux Arm.  Everything except the overclocking should be the same for an
 original N2.  
+
 <!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
 
 - [Resources](#resources)
@@ -22,6 +17,8 @@ original N2.
    * [Suspend](#suspend)
 - [The Recipe](#the-recipe)
    * [Install Arch Linux Arm](#install-arch-linux-arm)
+      + [Partition the SDCARD for Mainline U-Boot and More Kernel Space](#partition-the-sdcard-for-mainline-u-boot-and-more-kernel-space)
+      + [Follow Remaining Instructions](#follow-remaining-instructions)
    * [Finish Up a Normal Arch Linux Install](#finish-up-a-normal-arch-linux-install)
    * [Backup the Stock Boot Partition and Kernel Modules](#backup-the-stock-boot-partition-and-kernel-modules)
    * [Install Mainline U-Boot](#install-mainline-u-boot)
@@ -35,22 +32,23 @@ original N2.
    * [U-Boot Distro Boot extlinux.conf file](#u-boot-distro-boot-extlinuxconf-file)
    * [Change FSTAB to Use UUID for Boot Partition](#change-fstab-to-use-uuid-for-boot-partition)
    * [Reboot Into Mainline Linux](#reboot-into-mainline-linux)
-   * [Network Interface Change / NetworkManager](#network-interface-change--networkmanager)
+   * [Network Interface Change](#network-interface-change)
    * [Pin Your EDID File to Resolve Display Sleep Issues](#pin-your-edid-file-to-resolve-display-sleep-issues)
       + [Extract the EDID File From Your Monitor](#extract-the-edid-file-from-your-monitor)
       + [Put the EDID in Your initrd](#put-the-edid-in-your-initrd)
    * [Setup the "Fix USB" Reboot Hook](#setup-the-fix-usb-reboot-hook)
-   * [Analog Audio Enablment](#analog-audio-enablment)
+   * [Audio](#audio)
       + [Install Pulseaudio and Disable Sink Suspend](#install-pulseaudio-and-disable-sink-suspend)
-- [Optional / Additional Pieces](#optional--additional-pieces)
-   * [Overclocking](#overclocking)
+   * [Enable Analog Audio Out](#enable-analog-audio-out)
    * [Disable Suspend](#disable-suspend)
+- [Optional Additional Pieces](#optional-additional-pieces)
+   * [Overclocking](#overclocking)
    * [Wayland](#wayland)
    * [Plasma on Wayland](#plasma-on-wayland)
    * [SDDM Display Manager on Wayland](#sddm-display-manager-on-wayland)
    * [Firefox Settings](#firefox-settings)
    * [USB Quirks for Cheap USB SSDs](#usb-quirks-for-cheap-usb-ssds)
-   * [Root / Home Volumes on external SSD with LVM2](#root--home-volumes-on-external-ssd-with-lvm2)
+   * [Root and Home Volumes on external SSD with LVM2](#root-and-home-volumes-on-external-ssd-with-lvm2)
       + [Install LVM2 in the INITRD](#install-lvm2-in-the-initrd)
       + [Change root in extlinux.conf](#change-root-in-extlinuxconf)
 
@@ -138,14 +136,143 @@ wide.
 # The Recipe
 
 ## Install Arch Linux Arm
-Go to the [Arch Linux Arm ODROID-N2 page](https://archlinuxarm.org/platforms/armv8/amlogic/odroid-n2)
-and install arch on an SD card.  **Make sure you make your vfat boot partition
-start at 4096 or 8192 instead of 2048** or you will be sad when you try to write
-the newer mainline u-boot image to the front of this card and you clobber your
-boot filesystem because the new u-boot is far larger than 2048\*512 = 1MB.
-**Additionally, make the boot filesystem +1G** so you can store a few different
-kernels and initrd there. I tried 512M and was still cutting it close with the
-various backups I had taken.
+Go to the [Arch Linux Arm ODROID-N2
+page](https://archlinuxarm.org/platforms/armv8/amlogic/odroid-n2) and prepare
+to install Arch Linux Arm.  
+
+### Partition the SDCARD for Mainline U-Boot and More Kernel Space
+**We have to create the partitions a bit differently** than they recommend as
+we need more space for u-boot mainline.  Unfortunately, this means we **cannot
+accept the defaults** for the second partition because it will want to place it
+at the front of the device instead of after the first partition, making a 3M
+ext2 fs.  What we want to do instead is make the **first partition at sector
+``8192``** to make room for u-boot mainline and **make it +1G** in size so we
+can backup kernels and have some room to breathe.  Set the 1st partition to
+type ``c`` for vfat as directed.  Next, make the **second partition 1 sector
+AFTER the end of the first partition INSTEAD of the using defaults.**  You will
+(p)rint partitions to find the last sector of the first partition and add 1 to
+it.  **That will be the first sector of partition 2** and should be ``2105344``
+with a +1G first partition that started at sector ``8192`` You can accept the
+defaults for the last sector as that will use the entire device size.  Check
+your work by (p)rinting the new partition table.  If it looks correct, (w)rite
+the partition table.
+
+A complete log of me setting up a brand new sdcard is provided below, starting
+with me wiping the front and then running fdisk to create the two partitions.
+**Note the final print** of the partition table--that's how it should look with
+only potentially a different ending sector and partition size for partition 2
+based on the size of your sdcard. 
+
+**BE SURE to swap out /dev/mmcblk0 with your sdcard device, it may be /dev/sdX
+if using a USB card writer.**
+
+```
+# dd if=/dev/zero of=/dev/mmcblk0 bs=1M count=8
+8+0 records in
+8+0 records out
+8388608 bytes (8.4 MB, 8.0 MiB) copied, 0.526532 s, 15.9 MB/s
+# fdisk /dev/mmcblk0
+
+Welcome to fdisk (util-linux 2.40.4).
+Changes will remain in memory only, until you decide to write them.
+Be careful before using the write command.
+
+Device does not contain a recognized partition table.
+Created a new DOS (MBR) disklabel with disk identifier 0xd6615bfe.
+
+Command (m for help): o
+Created a new DOS (MBR) disklabel with disk identifier 0x6aec463b.
+
+Command (m for help): p
+Disk /dev/mmcblk0: 119.38 GiB, 128177930240 bytes, 250347520 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+Disklabel type: dos
+Disk identifier: 0x6aec463b
+
+Command (m for help): n
+Partition type
+   p   primary (0 primary, 0 extended, 4 free)
+   e   extended (container for logical partitions)
+Select (default p):
+
+Using default response p.
+Partition number (1-4, default 1):
+First sector (2048-250347519, default 2048): 8192
+Last sector, +/-sectors or +/-size{K,M,G,T,P} (8192-250347519, default 250347519): +1G
+
+Created a new partition 1 of type 'Linux' and of size 1 GiB.
+
+Command (m for help): t
+Selected partition 1
+Hex code or alias (type L to list all): c
+Changed type of partition 'Linux' to 'W95 FAT32 (LBA)'.
+
+Command (m for help): p
+Disk /dev/mmcblk0: 119.38 GiB, 128177930240 bytes, 250347520 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+Disklabel type: dos
+Disk identifier: 0x6aec463b
+
+Device         Boot Start     End Sectors Size Id Type
+/dev/mmcblk0p1       8192 2105343 2097152   1G  c W95 FAT32 (LBA)
+
+Command (m for help): n
+Partition type
+   p   primary (1 primary, 0 extended, 3 free)
+   e   extended (container for logical partitions)
+Select (default p):
+
+Using default response p.
+Partition number (2-4, default 2):
+First sector (2048-250347519, default 2048): 2105344
+Last sector, +/-sectors or +/-size{K,M,G,T,P} (2105344-250347519, default 250347519):
+
+Created a new partition 2 of type 'Linux' and of size 118.4 GiB.
+
+Command (m for help): p
+Disk /dev/mmcblk0: 119.38 GiB, 128177930240 bytes, 250347520 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+Disklabel type: dos
+Disk identifier: 0x6aec463b
+
+Device         Boot   Start       End   Sectors   Size Id Type
+/dev/mmcblk0p1         8192   2105343   2097152     1G  c W95 FAT32 (LBA)
+/dev/mmcblk0p2      2105344 250347519 248242176 118.4G 83 Linux
+
+Command (m for help): w
+The partition table has been altered.
+Calling ioctl() to re-read partition table.
+Syncing disks.
+```
+
+### Follow Remaining Instructions
+The rest of the instructions starting with creating the filesystems can now be
+completed.  If using an SDCARD, you do not need to change the fstab entry for
+``/boot``, but the switch on the N2 must be in the MMC/SDCARD position (right)
+or it will load from SPI and not the sdcard.
+
+
+*Note: The amlogic board is going to look 512B into the sdcard for a signed
+boot loader, it doesn't actually do the whole MBR thing or understand
+filesystems.  This is why the dd command seeked 512B into the sdcard in the
+instructions (bs=512 seek=1).  It's up to you to leave that area for a signed
+bootloader and to leave enough room before your boot partition that has your
+kernel etc needed by u-boot.  This was the reason behind the special
+partitioning.  U-Boot mainline is larger.*
+
+It is also worth noting that you do NOT need a serial console or to ssh in, you can
+proceed with hdmi output and usb keyboard/mouse just fine, however you will
+want to immediately ensure you have network to complete the install.
+
+**I highly suggest you immediately login on the console and change root and
+alarm password from their respective defaults of root and alarm.**  I'm not saying
+your network isn't secure, but I am.
 
 ## Finish Up a Normal Arch Linux Install
 After installing Arch Linux Arm, there's a lot of stuff like locale, timezone,
@@ -154,23 +281,17 @@ the [Arch Linux Installation Guide](https://wiki.archlinux.org/title/Installatio
 and jump right in at...
 * Step 3.3 Time, directly after the instructions to chroot as if
 it was an x86 system.  
-* Skip the part about installing a boot loader as it does not apply to the arm install.  
-* Skip the step for rebooting as you're already booted in on the new system.
+* **Skip** the part about updating initrd as it is not applicable.
+* **Skip** the part about installing a boot loader as it does not apply to the arm install.  
+* **Skip** the step for rebooting as you're already booted in on the new system.
 
-At this point I like to pacman -Syy and pacman -Su to bring my system up to the
+At this point I like to ``pacman -Syy`` and ``pacman -Su`` to bring my system up to the
 latest and greatest.  When done, reboot back in to ensure everything is good.
 
 ***At this point, you have a vanilla Arch Linux Arm install with the following:***
 * Enough space after your MBR partition table and before your boot partition for a much larger u-boot.
 * Stock (hardkernel) u-boot
 * Stock (hardkernel) linux kernel
-
-*Note: The amlogic board is going to look 512B into the sdcard for a signed
-boot loader, it doesn't actually do the whole MBR thing or understand
-filesystems.  This is why the dd command seeked 512B into the sdcard in the
-instructions (bs=512 seek=1).  It's up to you to leave that area for a signed
-bootloader and to leave enough room before your boot partition that has your
-kernel etc needed by u-boot.*
 
 ## Backup the Stock Boot Partition and Kernel Modules
 ```
@@ -221,7 +342,7 @@ reboot (ONLY reboot)--this is something I came up with in order to make the USB
 ports function after reboot instead of requiring a power cycle at every boot.
 I'm not sure why this happens, but it is a reliable solution from my testing.
 
-**You will have to install base-devel and potentially other packages to build
+**You will have to install ``base-devel`` and potentially other packages to build
 u-boot.** (TODO: determine which packages are needed an document here)
 
 *Make sure you're building as a non root user, even if you're using root for other purposes.*
@@ -234,6 +355,9 @@ to the following value.
 ```
 CONFIG_BOOTCOMMAND="fatrm mmc 0:1 reboot && echo Resetting USB on reboot... && usb reset && sleep 10; run distro_bootcmd"
 ```
+This is needed because, for whatever reason, the usb ports are dead on reboots
+(no power cycle) with mainline u-boot and linux.
+
 The above was setup on my device that does not have an eMMC installed.  If your
 sdcard is on ``mmc 1:1``, change the above accordingly.  What the above
 command does is check for (and remove) a file named ``reboot`` in the root of
@@ -255,8 +379,9 @@ Now that you have the .config created, run ``make`` to build your u-boot.bin
 file.
 
 ### Sign U-Boot on x86 Linux
-Transfer the resulting u-boot.bin file to an x86 linux machine and download the
-pre-built FIP repo.  Follow the instructions from u-boot page, included below.
+Transfer the resulting u-boot.bin file to an **x86 linux machine** and download
+the pre-built FIP repo.  Follow the instructions from u-boot page, included
+below.
 ```
 git clone https://github.com/LibreELEC/amlogic-boot-fip --depth=1
 cd amlogic-boot-fip
@@ -288,6 +413,11 @@ because mainline uboot is a bit more plump.
 dd if=/path/to/u-boot.bin.sd.bin of=/dev/mmcblk1 conv=fsync,notrunc bs=512 skip=1 seek=1
 ```
 *(Replace mmcblk1 with the appropriate device if that is not your sdcard)*
+**Do not write to p1 (mmcblkxp1) as that is the partition, you are writing in relation to the beginning of the device!**
+
+**It is a great idea to copy the u-boot.bin.sd.bin to /boot as well so you have
+a backup you can load with DD again in the future** but remember that nothing
+is actually actively using that file when you move it there.
 
 ## Update mkinitcpio to Load Panfrost ASAP for Console
 Generally speaking, panfrost will load pretty quick, but I've found myself
@@ -324,7 +454,8 @@ pacman -R uboot-odroid-n2
 New u-boot defaults to distro boot, which will look for
 ``/extlinux/extlinux.conf`` on any supported filesystem and use it to launch
 the kernel.  We will be placing this on the /boot partition which is the first
-partition (vfat) on the sdcard.  Sudo / su to root and create the file
+partition (vfat) on the sdcard.  Sudo / su to root and ``mkdir /boot/extlinux`` and then
+create the file
 ``/boot/extlinux/extlinux.conf`` as shown below.
 ```
 LABEL mainline-linux
@@ -335,8 +466,9 @@ LABEL mainline-linux
   APPEND root=UUID=a5a6b723-1b8d-4844-9ca6-3047d3399600 rw rootwait console=ttyAML0,115200n8 console=tty1 video=1920x1080@60 drm.edid_firmware=HDMI-A-1:edid/my-monitor.bin
 ```
 Now change the following:
-* Change the UUID if YOUR root filesystem.  Use the ``blkid`` command to find
-  it.
+* Change the UUID if YOUR root filesystem.  Use the ``blkid`` command to find 
+  it (p2 partition.)
+  * Be careful not to copy the quotes from blkid output!
 * Change or remove the video= argument.  I have my display locked at 1080 60hz
   because the odroid tries to use 120hz on this monitor and... it does not work
   well.
@@ -353,7 +485,7 @@ display sleep** which is due to a bug in re-pulling the EDID at display resume.
 ## Change FSTAB to Use UUID for Boot Partition
 Out of the box, the /boot partition is set to mount on /dev/mmcblk1p1.  This
 will likey change with the mainline linux kernel (did for me) so now is a good
-time to not guess about it and just change it to use UUID like the below
+time to not guess about it and just change your ``/etc/fstab`` to use UUID like the below
 example.
 ```
 # Static information about the filesystems.
@@ -363,25 +495,36 @@ example.
 UUID="3CC0-3C4B" /boot   vfat    defaults        0       0
 ```
 Change the UUID to YOUR /boot vfat filesystem.  Find it by using the
-``blkid`` command.
+``blkid`` command.  You can keep the quotes this time.
 
 ## Reboot Into Mainline Linux
-Hopefully, if everything has gone as planned, you can ``shutdown`` and
-re-apply power to the system and boot into your system on mainline linux.  I'd
-always suggest a hard power cycle when changing away from the hardkernel
-kernel.  
+Hopefully, if everything has gone as planned, you can ``shutdown now``, wait
+for the heartbeat light to stop flashing, then re-apply power to the system and
+boot into your system on mainline linux.  I'd always suggest a hard power cycle
+when changing away from the hardkernel kernel.  
 
-## Network Interface Change / NetworkManager
+## Network Interface Change
 Arch + mainline kernel 6 means your ethernet device probably changed from ``eth0`` to ``end0``.  
-You will need to update your systemd-networkd config at a minimum, but I found the device renaming
-to have race conditions with systemd-networkd.  My solution was to install NetworkManager and 
+The only way to really recover from this is to login on the serial console or hdmi w/ usb keyboard.
+You will then need to update your systemd-networkd config at ``/etc/systemd/network/eth.network``
+and change it so the ``Name`` value matches the new `endX` devices as shown below.
+```
+[Match]
+Name=end*
+```
+Now ``systemctl restart systemd-networkd``.  This will bring the network back up.
+
+I have discovered that, for whatever reason, systemd-networkd has a race conditions with the device renaming.  
+I've seen forum posts that sugget many systems have this issue.  My solution was to install NetworkManager and 
 disable systemd-networkd, which is something I do in the end on most machines as I prefer it, 
 especially if using a plasma desktop with the network manager integration.
 ```
 pacman -S networkmanager
 systemctl disable --now systemd-networkd
+systemctl enable --now NetworkManager
 ```
-Now execute ``nmtui`` to configure your network interface.
+Now execute ``nmtui`` to configure your network interface, but in my
+experience, it will already be setup because you installed with the network up.
 
 ## Pin Your EDID File to Resolve Display Sleep Issues
 You may need to do this when you change monitors as well, especially if they
@@ -400,7 +543,7 @@ cp /sys/devices/platform/soc/*/drm/card*/*/edid /lib/firmware/edid/my-monitor.bi
 ```
 
 ### Put the EDID in Your initrd
-Crack open the ``/etc/mkinitcpio.conf`` file again and add ``/lib/fimrware/edid/my-monitor.bin``
+Crack open the ``/etc/mkinitcpio.conf`` file again and add ``/lib/firmware/edid/my-monitor.bin``
 to the FILES section.  This will cause this file to be present in your initrd so the kernel can load it 
 before the root filesystem has been mounted.  An example of the section is provided below.
 ```
@@ -441,14 +584,9 @@ systemctl enable touch-reboot-flag.service
 ```
 Congrats, now you have usb ports after reboots!
 
-## Analog Audio Enablment
-The [setup-alsa.sh](./analog-audio/setup-alsa.sh) script will twiddle the alsa
-config in order to activate the 3.5mm analog jack and save its state across
-reboot.  From that point on, alsa output will come from the analog output jack.
-Maybe you can get pipewire-pulse towork, but I always end up back on vanilla
-pulseaudio with suspending disabled to avoid the massive POP sound every time
-audio is played for the first time.
+You should ``shutdown -r now`` to test it.
 
+## Audio
 ### Install Pulseaudio and Disable Sink Suspend
 Install the ``pulseaudio`` package and then modify the
 ``/etc/pulse/default.pa`` file by commenting out the ``load-module
@@ -461,7 +599,38 @@ Now when you login via a desktop environment such as plasma, there will be a
 loud pop initially, but after that, only a much quieter "tick/click" at the start of
 new audio playing after a period of silence.
 
-# Optional / Additional Pieces
+## Enable Analog Audio Out
+The [setup-alsa.sh](resources/setup-alsa.sh) script will twiddle the alsa
+config in order to activate the 3.5mm analog jack and save its state across
+reboot.  From that point on, alsa output will come from the analog output jack.
+Maybe you can get pipewire-pulse towork, but I always end up back on vanilla
+pulseaudio with suspending disabled to avoid the massive POP sound every time
+audio is played for the first time.
+
+* First install the package ``alsa-utils``
+* Then download the script and run it as root: ``bash setup-alsa.sh``.  
+  * It will save state, there is no reason to run it again as alsa reloads the state at each boot.
+
+## Disable Suspend
+Any time I suspend the device, there's no waking it back up via keyboard/mouse, so I
+just disable suspend at the systemd level by editing ``/etc/systemd/sleep.conf`` and uncommenting / changing 
+most options to no.
+```
+[Sleep]
+AllowSuspend=no
+AllowHibernation=no
+AllowSuspendThenHibernate=no
+AllowHybridSleep=no
+#SuspendState=mem standby freeze
+#HibernateMode=platform shutdown
+#MemorySleepMode=
+#HibernateDelaySec=
+HibernateOnACPower=no
+#SuspendEstimationSec=60min
+```
+
+
+# Optional Additional Pieces
 The remaining items are how I got my system into it's final form.  Everything
 before this point was essential or *common* to pretty much any install.  From
 point on, I focus on setting the system up as a daily driven desktop on plasma.
@@ -533,24 +702,6 @@ create a new dtbo with the reduced overclock speed.  You could also create your
 own DTBO to disable the higher clock speeds that the mainline linux kernel is
 setting on the original N2 if you have instability with them (unlikely.)
 
-## Disable Suspend
-Any time I suspend the device, there's no waking it back up via keyboard/mouse, so I
-just disable suspend at the systemd level by editing ``/etc/systemd/sleep.conf`` and uncommenting / changing 
-most options to no.
-```
-[Sleep]
-AllowSuspend=no
-AllowHibernation=no
-AllowSuspendThenHibernate=no
-AllowHybridSleep=no
-#SuspendState=mem standby freeze
-#HibernateMode=platform shutdown
-#MemorySleepMode=
-#HibernateDelaySec=
-HibernateOnACPower=no
-#SuspendEstimationSec=60min
-```
-
 ## Wayland
 Wayland is dramatically faster that Xorg with DRI.  Wayland is 98% there with
 panfrost and absolutely the right choice today.  Just install the wayland
@@ -615,7 +766,7 @@ kernel parameters.  The device id is ``0bda:9210`` and the ``:u`` disables uas
 mode.  This isn't specific to the odroid, but I find that cheap SSD enclosures tend
 to go hand-in-hand with SBC enthusiasts 😅.
 
-## Root / Home Volumes on external SSD with LVM2
+## Root and Home Volumes on external SSD with LVM2
 I am not going to go into the details (at this time, maybe later) about
 how I do this, but I will give you the details on the prerequisites.  I will
 leave out the gory details about setting up your VGs, LVs, and tar transferring
