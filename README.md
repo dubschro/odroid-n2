@@ -1,12 +1,8 @@
-# THIS IS A WORK IN PROGRESS
-TODO (needs documentation)
-* Update network settings for ethernet device name change with mainline kernel
-* Switch to network manager because systemd-networkd fights device renaming timing?
-* USB Quirks for cheap USB3 M2 SSD drives
-* Disabling suspend
-* Wayland vs X11 (use Wayland, it's dramatically faster)
-* Plasma on Wayland
-* SDDM on Wayland
+# WORK IN PROGRESS
+This is a work in progress.  Please note that I have not yet followed these
+steps end to end to ensure I didn't miss anything.  I just documented
+what I remembered from doing the process myself using my resulting
+working system as a guide.
 
 # ODROID N2 Resources / Guide
 This repo and this README.md provide the recipie and utilities I use on my
@@ -15,7 +11,6 @@ can help you get other distribitions working with mainline linux and u-boot as
 well, but be aware that this guide specifically provides instructions for Arch
 Linux Arm.  Everything except the overclocking should be the same for an
 original N2.  
-
 <!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
 
 - [Resources](#resources)
@@ -24,31 +19,43 @@ original N2.
    * [Hardware video decoding](#hardware-video-decoding)
    * [GPU issues in Wayland (Rare)](#gpu-issues-in-wayland-rare)
    * [Audio Pop](#audio-pop)
+   * [Suspend](#suspend)
 - [The Recipe](#the-recipe)
    * [Install Arch Linux Arm](#install-arch-linux-arm)
    * [Finish Up a Normal Arch Linux Install](#finish-up-a-normal-arch-linux-install)
    * [Backup the Stock Boot Partition and Kernel Modules](#backup-the-stock-boot-partition-and-kernel-modules)
    * [Install Mainline U-Boot](#install-mainline-u-boot)
-      + [Download](#download)
+      + [Download U-Boot Source](#download-u-boot-source)
       + [Build U-Boot on ODROID](#build-u-boot-on-odroid)
       + [Sign U-Boot on x86 Linux](#sign-u-boot-on-x86-linux)
       + [Install U-Boot ](#install-u-boot)
-   * [Update mkinitcpio to Load Panfrost ASAP](#update-mkinitcpio-to-load-panfrost-asap)
+   * [Update mkinitcpio to Load Panfrost ASAP for Console](#update-mkinitcpio-to-load-panfrost-asap-for-console)
    * [Install Mainline aarch64 Linux Kernel](#install-mainline-aarch64-linux-kernel)
    * [Uninstall stock uboot](#uninstall-stock-uboot)
    * [U-Boot Distro Boot extlinux.conf file](#u-boot-distro-boot-extlinuxconf-file)
    * [Change FSTAB to Use UUID for Boot Partition](#change-fstab-to-use-uuid-for-boot-partition)
    * [Reboot Into Mainline Linux](#reboot-into-mainline-linux)
-   * [Pin Your Monitor's EDID file](#pin-your-monitors-edid-file)
+   * [Network Interface Change / NetworkManager](#network-interface-change--networkmanager)
+   * [Pin Your EDID File to Resolve Display Sleep Issues](#pin-your-edid-file-to-resolve-display-sleep-issues)
       + [Extract the EDID File From Your Monitor](#extract-the-edid-file-from-your-monitor)
       + [Put the EDID in Your initrd](#put-the-edid-in-your-initrd)
    * [Setup the "Fix USB" Reboot Hook](#setup-the-fix-usb-reboot-hook)
-   * [Overclocking](#overclocking)
    * [Analog Audio Enablment](#analog-audio-enablment)
       + [Install Pulseaudio and Disable Sink Suspend](#install-pulseaudio-and-disable-sink-suspend)
-      + [Automatically suspend sinks/sources that become idle for too long](#automatically-suspend-sinkssources-that-become-idle-for-too-long)
+- [Optional / Additional Pieces](#optional--additional-pieces)
+   * [Overclocking](#overclocking)
+   * [Disable Suspend](#disable-suspend)
+   * [Wayland](#wayland)
+   * [Plasma on Wayland](#plasma-on-wayland)
+   * [SDDM Display Manager on Wayland](#sddm-display-manager-on-wayland)
+   * [Firefox Settings](#firefox-settings)
+   * [USB Quirks for Cheap USB SSDs](#usb-quirks-for-cheap-usb-ssds)
+   * [Root / Home Volumes on external SSD with LVM2](#root--home-volumes-on-external-ssd-with-lvm2)
+      + [Install LVM2 in the INITRD](#install-lvm2-in-the-initrd)
+      + [Change root in extlinux.conf](#change-root-in-extlinuxconf)
 
 <!-- TOC end -->
+
 # Resources
 These are used below but to make them easily accessible quickly, here they all
 are...
@@ -58,11 +65,13 @@ are...
 * [odroid-n2-overlock.dtbo](resources/odroid-n2-overlock.dtbo) **UNTESTED** ODROID N2 Device Tree Overlay for overclocking
   * [odroid-n2-overlock.dts](resources/odroid-n2-overlock.dts) **UNTESTED** Source for the above
   * The mainline kernel already *"overclocks"* the non plus variant to some
-    degree via the base ```meson-g12b-s922x.dtsi``` that is used for many arm
+    degree via the base ``meson-g12b-s922x.dtsi`` that is used for many arm
     sbc.  I *assume* the mainline cpu voltage and frequencies work with the n2, but I do not own one to test with.
     I have created created the n2 overclock overlay based on the stock
     hardkernel kernel's additional a73 mhz/mv for the 2004 speed from the stock device tree.
-* [extlinux.conf](resources/extlinux.conf) A /boot/extlinux/extlinux.conf for mainline u-boot file as a starting point 
+* [extlinux.conf](resources/extlinux.conf) A /boot/extlinux/extlinux.conf for mainline u-boot file as a starting point
+* [touch-reboot-flag.service](resources/touch-reboot-flag.service) A systemd service to hook reboot and touch a /boot/reboot file
+
 
 # What works?
 The following is all working on Arch Linux arm.  I'm confident I could get it
@@ -121,6 +130,10 @@ you get the pop when you login to the desktop and that's basically it.  There
 may be a little click the first time you play audio in a long time, but the
 massive POP is gone, so until they provide a good way to stop pipewire-pulse
 from suspending and causing this, I'll stick with vanilla pulseaudio.
+
+## Suspend
+The thing never wakes up.  Don't really care, I just disable suspend system
+wide.
 
 # The Recipe
 
@@ -188,7 +201,7 @@ how to setup the network and prepare / mount usb drives.  I would kindly suggest
 you also install and setup sshd so that you can login remotely for the steps
 that require large config file pasting and or installing files provided here.*
 
-### Download
+### Download U-Boot Source
 Go get a mainline release (v2025.04 as of this writing) from [U-Boot Github
 Releases](https://github.com/u-boot/u-boot/tags).  Download the archive and
 transfer it to your alarm user (or other non-root user if you have already
@@ -216,29 +229,29 @@ u-boot.** (TODO: determine which packages are needed an document here)
 cd u-boot-2025.04
 make odroid-n2_defconfig
 ```
-Now edit the resulting .config file and change the ```CONFIG_BOOTCOMMAND```
+Now edit the resulting .config file and change the ``CONFIG_BOOTCOMMAND``
 to the following value.
 ```
 CONFIG_BOOTCOMMAND="fatrm mmc 0:1 reboot && echo Resetting USB on reboot... && usb reset && sleep 10; run distro_bootcmd"
 ```
 The above was setup on my device that does not have an eMMC installed.  If your
-sdcard is on ```mmc 1:1```, change the above accordingly.  What the above
-command does is check for (and remove) a file named ```reboot``` in the root of
+sdcard is on ``mmc 1:1``, change the above accordingly.  What the above
+command does is check for (and remove) a file named ``reboot`` in the root of
 the sdcard boot partition and then reset the usb ports and sleep for 10
 seconds.  This will only happen once, obviously, and it is triggered by a
 reboot hook in a systemd service we will install later.  The effect is every
 requested reboot in linux puts this *flag file* in the boot partition, which
 causes the very next boot to reset usb and give it time to recover.  It's a
 hack, yes, but I'll take it over having to unplug the device at every reboot
-and never being able to reboot remotely.  Note that the ```usb reset``` command
+and never being able to reboot remotely.  Note that the ``usb reset`` command
 in u-boot will break cold boots, so it is important that this behavior is only
 triggered from the existings of the reboot flag file indicating the next boot
 is a reboot without power cycle.  In the worst case scenario, if you reboot but
 turn the power off, the next cold boot will fail due to thinking it is in
 "reboot mode" and bouncing the USB, but the next boot will succeed because it
-only will try the reboot logic once thanks to the ```fatrm``` command.
+only will try the reboot logic once thanks to the ``fatrm`` command.
 
-Now that you have the .config created, run ```make``` to build your u-boot.bin
+Now that you have the .config created, run ``make`` to build your u-boot.bin
 file.
 
 ### Sign U-Boot on x86 Linux
@@ -276,12 +289,12 @@ dd if=/path/to/u-boot.bin.sd.bin of=/dev/mmcblk1 conv=fsync,notrunc bs=512 skip=
 ```
 *(Replace mmcblk1 with the appropriate device if that is not your sdcard)*
 
-## Update mkinitcpio to Load Panfrost ASAP
+## Update mkinitcpio to Load Panfrost ASAP for Console
 Generally speaking, panfrost will load pretty quick, but I've found myself
 waiting for it to pop up and activate a console on hdmi output, especially if
 there is a failure early on during boot.  Forcing the module to load in initrd
 will ensure you get console messages on your monitor as soon as possible.  Add
-```panfrost``` to the modules list in ```/etc/mkinitcpio.conf```.  The top of
+``panfrost`` to the modules list in ``/etc/mkinitcpio.conf``.  The top of
 the file should look like the example below.
 ```
 # MODULES
@@ -291,7 +304,7 @@ the file should look like the example below.
 #     MODULES=(usbhid xhci_hcd)
 MODULES=(panfrost)
 ```
-**DO NOT run ```mkinitcpio -P``` as it will be ran for you when we install the mainline kernel.**
+**DO NOT run ``mkinitcpio -P`` as it will be ran for you when we install the mainline kernel.**
 
 ## Install Mainline aarch64 Linux Kernel
 ```
@@ -309,10 +322,10 @@ pacman -R uboot-odroid-n2
 
 ## U-Boot Distro Boot extlinux.conf file
 New u-boot defaults to distro boot, which will look for
-```/extlinux/extlinux.conf``` on any supported filesystem and use it to launch
+``/extlinux/extlinux.conf`` on any supported filesystem and use it to launch
 the kernel.  We will be placing this on the /boot partition which is the first
 partition (vfat) on the sdcard.  Sudo / su to root and create the file
-```/boot/extlinux/extlinux.conf``` as shown below.
+``/boot/extlinux/extlinux.conf`` as shown below.
 ```
 LABEL mainline-linux
   MENU LABEL Mainline Linux Kernel
@@ -322,16 +335,16 @@ LABEL mainline-linux
   APPEND root=UUID=a5a6b723-1b8d-4844-9ca6-3047d3399600 rw rootwait console=ttyAML0,115200n8 console=tty1 loglevel=7 video=1920x1080@60 drm.edid_firmware=HDMI-A-1:edid/my-monitor.bin
 ```
 Now change the following:
-* Change the UUID if YOUR root filesystem.  Use the ```blkid``` command to find
+* Change the UUID if YOUR root filesystem.  Use the ``blkid`` command to find
   it.
 * Change or remove the video= argument.  I have my display locked at 1080 60hz
   because the odroid tries to use 120hz on this monitor and... it does not work
   well.
 * If you have an N2+ model, change the FDT to
-  ```.../dtbs/amlogic/meson-g12b-odroid-n2-plus.dtb```.
+  ``.../dtbs/amlogic/meson-g12b-odroid-n2-plus.dtb``.
 
 Now also go verify that the dtb file (device tree blob) you are specifying
-exists.  Leave the ```drm.edid_firmware``` argument alone.  We will extract
+exists.  Leave the ``drm.edid_firmware`` argument alone.  We will extract
 this edid from your monitor later and put it in the right location.  For now,
 it will produce an error but move on without issue.  **We use an EDID file to
 keep the system from falling into the black screen abyss after long periods of
@@ -350,23 +363,36 @@ example.
 UUID="3CC0-3C4B" /boot   vfat    defaults        0       0
 ```
 Change the UUID to YOUR /boot vfat filesystem.  Find it by using the
-```blkid``` command.
+``blkid`` command.
 
 ## Reboot Into Mainline Linux
-Hopefully, if everything has gone as planned, you can ```shutdown``` and
+Hopefully, if everything has gone as planned, you can ``shutdown`` and
 re-apply power to the system and boot into your system on mainline linux.  I'd
 always suggest a hard power cycle when changing away from the hardkernel
 kernel.  
 
-## Pin Your Monitor's EDID file
+## Network Interface Change / NetworkManager
+Arch + mainline kernel 6 means your ethernet device probably changed from ``eth0`` to ``end0``.  
+You will need to update your systemd-networkd config at a minimum, but I found the device renaming
+to have race conditions with systemd-networkd.  My solution was to install NetworkManager and 
+disable systemd-networkd, which is something I do in the end on most machines as I prefer it, 
+especially if using a plasma desktop with the network manager integration.
+```
+pacman -S networkmanager
+systemctl disable --now systemd-networkd
+```
+Now execute ``nmtui`` to configure your network interface.
 
-### Extract the EDID File From Your Monitor
+## Pin Your EDID File to Resolve Display Sleep Issues
 You may need to do this when you change monitors as well, especially if they
 don't support the same modes.  We are extracting the EDID file from your
 monitor because mainline linux on the odroid n2 will sometimes lose the modes
 your monitor supports after some period of time with the display asleep.  The
 system doesn't crash, but you can't SEE anything.  I determined this from some
-very useful kernel messages.  Use the following commands as root to place your
+very useful kernel messages.  
+
+### Extract the EDID File From Your Monitor
+Use the following commands as root to place your
 monitor's EDID data into a file in your firmware directory.
 ```
 mkdir /lib/firmware/edid
@@ -374,7 +400,7 @@ cp /sys/devices/platform/soc/*/drm/card*/*/edid /lib/firmware/edid/my-monitor.bi
 ```
 
 ### Put the EDID in Your initrd
-Crack open the ```/etc/mkinitcpio.conf``` file again and add ```/lib/fimrware/edid/my-monitor.bin```
+Crack open the ``/etc/mkinitcpio.conf`` file again and add ``/lib/fimrware/edid/my-monitor.bin``
 to the FILES section.  This will cause this file to be present in your initrd so the kernel can load it 
 before the root filesystem has been mounted.  An example of the section is provided below.
 ```
@@ -383,7 +409,7 @@ before the root filesystem has been mounted.  An example of the section is provi
 # as-is and are not parsed in any way.  This is useful for config files.
 FILES=(/lib/firmware/edid/my-monitor.bin)
 ```
-Now run ```mkinitcpio -P``` to re-generate your initrd.  Run ```shutdown now```
+Now run ``mkinitcpio -P`` to re-generate your initrd.  Run ``shutdown now``
 and power cycle the system.  The EDID error should be gone.  **Note that I
 didn't say reboot?**  That's because you're likely using USB keyboard and mouse
 and rebooting the mainline kernel will lose the usb ports until we complete the
@@ -393,7 +419,7 @@ workaround for that issue.
 This will cause u-boot with our custom boot command to reset the usb ports
 and wait a moment only if the last shutdown was caused by a reboot request.
 This is a work around for the usb ports being broken after reboots.  As root, add the following 
-to a new file called ```/etc/systemd/system/touch-reboot-flag.service```.
+to a new file called ``/etc/systemd/system/touch-reboot-flag.service``.
 ```
 [Unit]
 Description=Touch /boot/reboot when rebooting
@@ -408,12 +434,43 @@ ExecStart=/usr/bin/touch /boot/reboot
 WantedBy=reboot.target
 ```
 This is a simple service that runs only at reboot to touch the /boot/reboot file to trigger our usb reset at reboot.
-Enable the service via the following commands.
+Enable the service via the following commands.  **Note that this is entirely dependent on the custom u-boot boot command we setup when we built and installed u-boot!**
 ```
 systemctl daemon-reload
 systemctl enable touch-reboot-flag.service
 ```
 Congrats, now you have usb ports after reboots!
+
+## Analog Audio Enablment
+The [setup-alsa.sh](./analog-audio/setup-alsa.sh) script will twiddle the alsa
+config in order to activate the 3.5mm analog jack and save its state across
+reboot.  From that point on, alsa output will come from the analog output jack.
+Maybe you can get pipewire-pulse towork, but I always end up back on vanilla
+pulseaudio with suspending disabled to avoid the massive POP sound every time
+audio is played for the first time.
+
+### Install Pulseaudio and Disable Sink Suspend
+Install the ``pulseaudio`` package and then modify the
+``/etc/pulse/default.pa`` file by commenting out the ``load-module
+module-suspend-on-idle`` statement.
+```
+### Automatically suspend sinks/sources that become idle for too long
+#load-module module-suspend-on-idle
+```
+Now when you login via a desktop environment such as plasma, there will be a
+loud pop initially, but after that, only a much quieter "tick/click" at the start of
+new audio playing after a period of silence.
+
+# Optional / Additional Pieces
+The remaining items are how I got my system into it's final form.  Everything
+before this point was essential or *common* to pretty much any install.  From
+point on, I focus on setting the system up as a daily driven desktop on plasma.
+It's a pretty good experience on Wayland--full accelerated graphics in the
+graphical shell and a generally snappy experience, which is a far cry from the
+past X11 fb experience, even with DRI enabled.  About the only thing I could
+complain about is pages super fat web pages can be a drag, but there are some
+firefox settings I will provide that make this experience more of a "wait for
+the page to be ready" rather than "this thing slows my whole machine down."
 
 ## Overclocking
 I do not have an original N2 to test with, only my N2+, so this has only been
@@ -426,18 +483,19 @@ the odroid n2 wiki considers overclocked are considered standard speeds for the
 underlying SoC and are used on many SBCs.  
 
 Grab either the N2 or N2+ overclocking DTO from the [Resources](#resources) section and install in a directory called
-```/boot/overlays```, then add it as an ```FDT``` line in your extlinux.conf.
-An example is included below.
+``/boot/overlays``, then add it as an ``FDTOVERLAYS`` line in your extlinux.conf.
+An example is included below.  **Ensure you are using the n2+ dtb with the n2+ overclock dtbo or the n2 dtb with the n2 overclock dtbo.  Do not mix and match!**
 ```
 LABEL mainline-linux
   MENU LABEL Mainline Linux Kernel
   LINUX ../Image
   INITRD ../initramfs-linux.img
   FDT ../dtbs/amlogic/meson-g12b-odroid-n2-plus.dtb
+  FDTOVERLAYS ../overlays/odroid-n2-plus-overlock.dtbo
   APPEND root=UUID=a5a6b723-1b8d-4844-9ca6-3047d3399600 rw rootwait console=ttyAML0,115200n8 console=tty1 loglevel=7 video=1920x1080@60 drm.edid_firmware=HDMI-A-1:edid/my-monitor.bin
 ```
-After a reboot, you can install the ```cpupower``` package and run ```cpupower -c 0 frequency-info``` to see the a53 core frequency and 
-```cpupower -c 2 frequency-info``` to see the a73 core frequency.
+After a reboot, you can install the ``cpupower`` package and run ``cpupower -c 0 frequency-info`` to see the a53 core frequency and 
+``cpupower -c 2 frequency-info`` to see the a73 core frequency.
 ```
 [raz@alarm ~]$ cpupower -c 0 frequency-info
 analyzing CPU 0:
@@ -468,20 +526,127 @@ analyzing CPU 2:
   current CPU frequency: Unable to call hardware
   current CPU frequency: 2.40 GHz (asserted by call to kernel)
 ```
+I've never had my board crash from running overclocked, but if you want to
+disable the highest clock speeds and/or *step down*, you can download the dts
+source and remove the clocks you don't want and use the ``dtc`` command to
+create a new dtbo with the reduced overclock speed.  You could also create your
+own DTBO to disable the higher clock speeds that the mainline linux kernel is
+setting on the original N2 if you have instability with them (unlikely.)
 
-## Analog Audio Enablment
-The [setup-alsa.sh](./analog-audio/setup-alsa.sh) script will twiddle the alsa
-config in order to activate the 3.5mm analog jack and save its state across
-reboot.  From that point on, alsa output will come from the analog output jack.
-Maybe you can get pipewire-pulse towork, but I always end up back on vanilla
-pulseaudio with suspending disabled to avoid the massive POP sound every time
-audio is played for the first time.
+## Disable Suspend
+Any time I suspend the device, there's no waking it back up via keyboard/mouse, so I
+just disable suspend at the systemd level by editing ``/etc/systemd/sleep.conf`` and uncommenting / changing 
+most options to no.
+```
+[Sleep]
+AllowSuspend=no
+AllowHibernation=no
+AllowSuspendThenHibernate=no
+AllowHybridSleep=no
+#SuspendState=mem standby freeze
+#HibernateMode=platform shutdown
+#MemorySleepMode=
+#HibernateDelaySec=
+HibernateOnACPower=no
+#SuspendEstimationSec=60min
+```
 
-### Install Pulseaudio and Disable Sink Suspend
-Install the ```pulseaudio``` package and then modify the ```/etc/pulse/default.pa``` file by commenting out the ```load-module module-suspend-on-idle``` statement.
+## Wayland
+Wayland is dramatically faster that Xorg with DRI.  Wayland is 98% there with
+panfrost and absolutely the right choice today.  Just install the wayland
+packages, no special configuration needed.
+
+## Plasma on Wayland
+Plasma is actually changing to Wayland by for Plasma 7.  It works very
+well TODAY.  SDDM works well TODAY.  The only thing I have not seen work 100%
+is the hot corners overview feature causes a black screen until you exit from
+the hot corners overview.  I just turn that off and don't really miss it.
+Perhaps I'll figure out what the issue is and file a bug, that day is not
+today.  **Plasma on Wayland is beautiful and fast with full graphics effects turned on.**
+
+Just install KDE/Plasma via the [KDE -
+ArchWiki](https://wiki.archlinux.org/title/KDE) page.  My preferred route is to
+install the ``plasma-meta`` package to get the "full plasma" and then follow up
+by installing the ``kde-applications-group`` package and then only installing
+individual apps by number when prompted.  At a minimum, I install konsole,
+dolphin, kate, kcalc, and then pick and choose things that sound beneficial or
+I know I've used in the past.
+
+You can run plasma (as a non root user, of course) by logging in on a text
+console and running ``startplasma-wayland``, or you can install a display
+manager such as SDDM and choose the "Plasma (Wayland)" option.
+
+## SDDM Display Manager on Wayland
+SDDM will run on X11, but I've had it *get angry* and stop working when using
+it in tandem with Wayland Plasma, so I switched to Wayland for it as well.
+Thankfully it is super easy to do.  Just install the ``sddm`` package, then
+follow the steps for [Wayland](https://wiki.archlinux.org/title/SDDM#Wayland)
+from the arch wiki.  I only did the first ``KDE Plasma / Kwin`` step, which
+involves installing a few packages and making one config file.
+
+After the above is done, enable/start sddm: ``systemctl enable --now sddm``
+
+## Firefox Settings
+Firefox will gladly use all your cores and drag down your entire system.  Open
+``about:config`` and change ``dom.ipc.processCount.webIsolated`` to 2 or 3.
+The default value of ``4`` will essentially use all of your a73 cores under
+load and that makes the ui less responsive.  I like to limit it to ``2``
+personally.  Additionally, switch ``browser.tabs.unloadOnLowMemory`` to
+``true`` to unload tabs and keep the system from OOM killing things or going to
+swap (if you have swap!) if a background tab runs away.  These two settings
+make a pretty large usability difference with the only real down side is a slow
+page may be slow while the browser and system remains responsive.
+
+## USB Quirks for Cheap USB SSDs
+I have a "MOKiN" USB3 M2 drive enclosure with SSD inside.  It worked great up
+until I upgraded to Linux 6.  Turns out that many cheap USB storage devices
+*claim* to support ``uas`` mode, but it falls apart when used put to the test.
+Prior versions of Linux used ``usb-storage`` mode, but newer Linux versions
+started to use uas mode and trust the claims of cheap devices with
+less-than-compliant firmware about their ability to do uas.  If you have one of
+these, the device will generally work, then just fall on its face and stop
+responding.  The solution for these devices is to black list them for uas mode
+via a *usb quirk*, either as a kernel command line option, or a udev
+configuration.  For me, since I actually run my entire root and home volumes
+off of LVM on an external USB M2 SSD that has this issue, I have no choice but
+to quirk it up on the kernel command line.  You can use ``lsusb -tv`` to find
+your device id and add a quirk like ``usb-storage.quirks=0bda:9210:u`` to your
+kernel parameters.  The device id is ``0bda:9210`` and the ``:u`` disables uas
+mode.  This isn't specific to the odroid, but I find that cheap SSD enclosures tend
+to go hand-in-hand with SBC enthusiasts 😅.
+
+## Root / Home Volumes on external SSD with LVM2
+I am not going to go into the details (at this time, maybe later) about
+how I do this, but I will give you the details on the prerequisites.  I will
+leave out the gory details about setting up your VGs, LVs, and tar transferring
+the root / home filesystems as that is not even remotely odroid n2 / arch
+specific.  FOR NOW, I'm assuming before you go into the next steps, you know
+how to do this part and have your root and or home LVs ready.
+
+### Install LVM2 in the INITRD
+In order to have lvm2 volumes available as your root filesystem, the initrd 
+must have the lvm2 module in the right place.  This, of course, assumes you have
+the ``lvm2`` package installed and some LVs ready to go with your root fs
+contents transffered to it.  Open the ``/etc/mkinitcpio.conf`` and update the ``HOOKS``
+value so that ``lvm2`` is after ``block`` and before ``filesystems``.  This will
+cause all LVs to be available and identified so that the ``root=UUID=<your rootfs uuid>`` argument
+can find your root LV.  My hooks came out looking like the following.
 ```
-### Automatically suspend sinks/sources that become idle for too long
-#load-module module-suspend-on-idle
+HOOKS=(base udev autodetect microcode modconf kms keyboard keymap consolefont block lvm2 filesystems fsck)
 ```
-Now when you login via a desktop environment such as plasma, there will be a loud pop initially, but after that, only a much smaller "tick" at the start of new audio playing.
+Now you can run ``mkinitcpio -P`` to generate the initrd with lvm2 support.
+
+### Change root in extlinux.conf
+If you have moved ``/home`` to a new LV as well, ensure that your new ``root`` LV filesystem has
+an ``fstab`` that mounts /home as your new LV's uuid from ``blkid``. 
+
+Change the ``root=`` kernel option in ``/boot/extlinux/extlinux.conf`` to point the **new** UUID of the LV
+you transferred the root filesystem to.
+
+At this point, if you reboot, the system should come up and find/mount the root (and optionally home) LVs.
+
+This is hardly an odroid n2 item, but I wanted to at least cover the LV initrd stuff and changing the kernel 
+boot command line in the context of the system setup I had advocated for.
+
+I will likely expand this section with some gory detail when I get time, so maybe it's not so likely.
 
