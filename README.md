@@ -58,10 +58,10 @@ original N2.
 These are used below but to make them easily accessible quickly, here they all
 are...
 * [setup-alsa.sh](resources/setup-alsa.sh) Mainline kernel alsa enablement script 
-* [odroid-n2-plus-overlock.dtbo](resources/odroid-n2-plus-overlock.dtbo) ODROID N2 Plus Device Tree Overlay for overclocking
-  * [odroid-n2-plus-overlock.dts](resources/odroid-n2-plus-overlock.dts) Source for the above
-* [odroid-n2-overlock.dtbo](resources/odroid-n2-overlock.dtbo) **UNTESTED** ODROID N2 Device Tree Overlay for overclocking
-  * [odroid-n2-overlock.dts](resources/odroid-n2-overlock.dts) **UNTESTED** Source for the above
+* [odroid-n2-plus-overclock.dtbo](resources/odroid-n2-plus-overclock.dtbo) ODROID N2 Plus Device Tree Overlay for overclocking
+  * [odroid-n2-plus-overclock.dts](resources/odroid-n2-plus-overclock.dts) Source for the above
+* [odroid-n2-overclock.dtbo](resources/odroid-n2-overclock.dtbo) **UNTESTED** ODROID N2 Device Tree Overlay for overclocking
+  * [odroid-n2-overclock.dts](resources/odroid-n2-overclock.dts) **UNTESTED** Source for the above
   * The mainline kernel already *"overclocks"* the non plus variant to some
     degree via the base ``meson-g12b-s922x.dtsi`` that is used for many arm
     sbc.  I *assume* the mainline cpu voltage and frequencies work with the n2, but I do not own one to test with.
@@ -660,7 +660,7 @@ LABEL mainline-linux
   LINUX ../Image
   INITRD ../initramfs-linux.img
   FDT ../dtbs/amlogic/meson-g12b-odroid-n2-plus.dtb
-  FDTOVERLAYS ../overlays/odroid-n2-plus-overlock.dtbo
+  FDTOVERLAYS ../overlays/odroid-n2-plus-overclock.dtbo
   APPEND root=UUID=a5a6b723-1b8d-4844-9ca6-3047d3399600 rw rootwait console=ttyAML0,115200n8 console=tty1 video=1920x1080@60 drm.edid_firmware=HDMI-A-1:edid/my-monitor.bin
 ```
 After a reboot, you can install the ``cpupower`` package and run ``cpupower -c 0 frequency-info`` to see the a53 core frequency and 
