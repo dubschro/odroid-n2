@@ -332,7 +332,7 @@ LABEL mainline-linux
   LINUX ../Image
   INITRD ../initramfs-linux.img
   FDT ../dtbs/amlogic/meson-g12b-odroid-n2.dtb
-  APPEND root=UUID=a5a6b723-1b8d-4844-9ca6-3047d3399600 rw rootwait console=ttyAML0,115200n8 console=tty1 loglevel=7 video=1920x1080@60 drm.edid_firmware=HDMI-A-1:edid/my-monitor.bin
+  APPEND root=UUID=a5a6b723-1b8d-4844-9ca6-3047d3399600 rw rootwait console=ttyAML0,115200n8 console=tty1 video=1920x1080@60 drm.edid_firmware=HDMI-A-1:edid/my-monitor.bin
 ```
 Now change the following:
 * Change the UUID if YOUR root filesystem.  Use the ``blkid`` command to find
@@ -492,7 +492,7 @@ LABEL mainline-linux
   INITRD ../initramfs-linux.img
   FDT ../dtbs/amlogic/meson-g12b-odroid-n2-plus.dtb
   FDTOVERLAYS ../overlays/odroid-n2-plus-overlock.dtbo
-  APPEND root=UUID=a5a6b723-1b8d-4844-9ca6-3047d3399600 rw rootwait console=ttyAML0,115200n8 console=tty1 loglevel=7 video=1920x1080@60 drm.edid_firmware=HDMI-A-1:edid/my-monitor.bin
+  APPEND root=UUID=a5a6b723-1b8d-4844-9ca6-3047d3399600 rw rootwait console=ttyAML0,115200n8 console=tty1 video=1920x1080@60 drm.edid_firmware=HDMI-A-1:edid/my-monitor.bin
 ```
 After a reboot, you can install the ``cpupower`` package and run ``cpupower -c 0 frequency-info`` to see the a53 core frequency and 
 ``cpupower -c 2 frequency-info`` to see the a73 core frequency.
