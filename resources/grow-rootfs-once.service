@@ -1,0 +1,14 @@
+[Unit]
+Description=Grow root filesystem once at boot
+DefaultDependencies=no
+Before=basic.target
+After=local-fs.target
+Requires=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/grow-rootfs-once.sh "yes I really mean it"
+RemainAfterExit=true
+
+[Install]
+WantedBy=basic.target
