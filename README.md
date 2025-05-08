@@ -748,6 +748,12 @@ swap (if you have swap!) if a background tab runs away.  These two settings
 make a pretty large usability difference with the only real down side is a slow
 page may be slow while the browser and system remains responsive.
 
+**I highly suggest turning off video auto play** because modern websites will
+put 3+ auto play muted videos on a page and it is just too much for these SBCs
+to handle.  A good example is cnn.com, which is just hardly usable until you do
+this.  Search for *autoplay* in firefox preferences and turn off all auto play
+video.
+
 ## USB Quirks for Cheap USB SSDs
 I have a "MOKiN" USB3 M2 drive enclosure with SSD inside.  It worked great up
 until I upgraded to Linux 6.  Turns out that many cheap USB storage devices
