@@ -1,6 +1,7 @@
 # ODROID N2 Resources / Guide
 This repo and this README.md provide the recipie and utilities I use on my
-ODROID N2+ to run modern arch (arch arm port) with.  I'm sure this information
+ODROID N2+ to run modern arch (arch arm port) with.  **There is also a prebuilt
+SDCARD image I created from following the recipe.**  I'm sure this information
 can help you get other distribitions working with mainline linux and u-boot as
 well, but be aware that this guide specifically provides instructions for Arch
 Linux Arm.  Everything except the overclocking should be the same for an
@@ -69,6 +70,14 @@ are...
     hardkernel kernel's additional a73 mhz/mv for the 2004 speed from the stock device tree.
 * [extlinux.conf](resources/extlinux.conf) A /boot/extlinux/extlinux.conf for mainline u-boot file as a starting point
 * [touch-reboot-flag.service](resources/touch-reboot-flag.service) A systemd service to hook reboot and touch a /boot/reboot file
+* [dubschro-odroid-n2-arch-mainline-linux.img.xz](https://drive.google.com/file/d/1P4bjMLrZF_AkMLkAayxuUlIimey-LHkz/view?usp=drive_link) A pre-built sdcard image from the recipe
+  * USE AT YOUR OWN RISK, NO WARRANTY.
+  * Not overclocked
+  * No desktop env, clean base with no optional items done
+  * Grows root partition and filesystem on first launch to fill the sdcard  
+  * Made following the recipe for the base N2 variant, tested on N2+
+    * Add video= kernel param if video issues are encountered
+    * Change to N2+ dtbs for N2 speeds
 
 
 # What works?
