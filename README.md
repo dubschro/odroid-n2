@@ -78,13 +78,14 @@ are...
   * Made following the recipe for the base N2 variant, tested on N2+
     * Add video= kernel param if video issues are encountered
     * Change to N2+ dtbs for N2 speeds
+* [Last Known Good Kernel](https://github.com/dubschro/odroid-n2/releases/tag/linux-aarch64-6.16.7-1)
 
 
 # What works?
 The following is all working on Arch Linux arm.  I'm confident I could get it
 working on pretty much any distro that provides an aarch64 kernel though.
 
-* Mainline Linux (6.14.4 at last update)
+* Mainline Linux (6.16.7-1 at last update)
 * Mainline U-Boot
 * Panfrost GPU support 
 * Mainline mesa releases from arch arm
@@ -102,6 +103,15 @@ I still boot off of sdcard, but, that's pretty utilitarian given that I can pop
 it into another working machine and resolve boot issues I might cause.  
 
 # What isn't perfect...
+
+## 6.17+ Kernels are Broken
+As of this writing, I have noticed that audio is broken and performance is 
+horrible on 6.17+.  I have created a [release](https://github.com/dubschro/odroid-n2/releases/tag/linux-aarch64-6.16.7-1)
+that has the arch linux arm binaries for the kernel that last worked well for me.
+I suggest downgrading to this kernel after a package update if you find they
+are still broken.  More on this later as odroid's are not the most high
+priority thing for the kernel devs and it is unfortunate that there is no
+working arch linux arm archive at this time.
 
 ## Hardware video decoding
 As of this writing (April 29, 2025) I do not have hardware video decoding yet
