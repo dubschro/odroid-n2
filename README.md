@@ -112,6 +112,11 @@ I suggest downgrading to this kernel after a package update if you find they
 are still broken.  More on this later as odroid's are not the most high
 priority thing for the kernel devs and it is unfortunate that there is no
 working arch linux arm archive at this time.
+### Update as of 5/1/2026
+7.0.3 Linux still has no sound card detected, BUT, the added joy is that the
+[Copy Fail](https://en.wikipedia.org/wiki/Copy_Fail) vulnerability came out a few 
+days back and it is bad, so I suggest adding `initcall_blacklist=algif_aead_init` to your 
+kernel arguments to mitigate this CVE while we're forced to run old kernels.
 
 ## Hardware video decoding
 As of this writing (April 29, 2025) I do not have hardware video decoding yet
@@ -482,8 +487,12 @@ LABEL mainline-linux
   LINUX ../Image
   INITRD ../initramfs-linux.img
   FDT ../dtbs/amlogic/meson-g12b-odroid-n2.dtb
-  APPEND root=UUID=a5a6b723-1b8d-4844-9ca6-3047d3399600 rw rootwait console=ttyAML0,115200n8 console=tty1 video=1920x1080@60 drm.edid_firmware=HDMI-A-1:edid/my-monitor.bin
-```
+  APPEND root=UUID=a5a6b723-1b8d-4844-9ca6-3047d3399600 rw rootwait console=ttyAML0,115200n8 console=tty1 video=1920x1080@60 drm.edid_firmware=HDMI-A-1:edid/my-monitor.bin consoleblank=0 initcall_blacklist=algif_aead_init
+``` 
+*(Note that the blacklist argument is due to the Copy Fail linux
+vulnerability and the fact that, as of this writing, there is no newer kernel
+than 6.16 where audio works right in mainline.)*
+
 Now change the following:
 * Change the UUID if YOUR root filesystem.  Use the ``blkid`` command to find 
   it (p2 partition.)
@@ -622,7 +631,7 @@ new audio playing after a period of silence.
 The [setup-alsa.sh](resources/setup-alsa.sh) script will twiddle the alsa
 config in order to activate the 3.5mm analog jack and save its state across
 reboot.  From that point on, alsa output will come from the analog output jack.
-Maybe you can get pipewire-pulse towork, but I always end up back on vanilla
+Maybe you can get pipewire-pulse to work, but I always end up back on vanilla
 pulseaudio with suspending disabled to avoid the massive POP sound every time
 audio is played for the first time.
 
